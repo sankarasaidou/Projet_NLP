@@ -1,62 +1,56 @@
 import streamlit as st
 
-from Projet1.app import main as projet1
-from Projet2.app import main as projet2
-from Projet3.app import main as projet3
-from Projet4.app import main as projet4
-from Projet5.app import main as projet5
-from Projet6.app import main as projet6
-from Projet7.app import main as projet7
-from Projet8.app import main as projet8
-from Projet9.app import main as projet9
-from Projet10.app import main as projet10
+# ==============================================================================
+# 1. IMPORTS DES PROJETS (Noms des dossiers exacts en minuscules pour Linux/GitHub)
+# ==============================================================================
+from projet1_ner.app import main as projet1
+from projet2_vectorisation.app import main as projet2
+from projet3_topic_modeling.app import main as projet3
+from projet4_sentiment.app import main as projet4
+from projet5_classification.app import main as projet5
+from projet6_plagiat.app import main as projet6
+from projet7_resume.app import main as projet7
+from projet8_chatbot.app import main as projet8
+from projet9_tendances.app import main as projet9
+from projet10_recommandation.app import main as projet10
 
-st.set_page_config(page_title="Projets NLP", layout="wide")
+# Configuration de la page principale
+st.set_page_config(page_title="Projets NLP - M1 FDIA", layout="wide", page_icon="📚")
 
-st.title("📚 Projets NLP - M1 FDIA")
+st.title("📚 Plateforme des Projets NLP - M1 FDIA")
+st.write("Utilisez le menu latéral pour naviguer et tester les différents modules développés.")
+st.markdown("---")
 
+# ==============================================================================
+# 2. DICTIONNAIRE DE CORRESPONDANCE (Évite les bugs des structures if/elif complexes)
+# ==============================================================================
+projets = {
+    "Projet 1 – NER Spécifique IA": projet1,
+    "Projet 2 – Vectorisation": projet2,
+    "Projet 3 – Topic Modeling": projet3,
+    "Projet 4 – Analyse de sentiment": projet4,
+    "Projet 5 – Classification": projet5,
+    "Projet 6 – Détection de plagiat": projet6,
+    "Projet 7 – Résumé automatique": projet7,
+    "Projet 8 – Chatbot": projet8,
+    "Projet 9 – Analyse de tendances": projet9,
+    "Projet 10 – Recommandation": projet10,
+}
+
+# ==============================================================================
+# 3. INTERFACE ET SÉLECTION
+# ==============================================================================
 choix = st.sidebar.selectbox(
-    "Choisissez un projet",
-    [
-        "Projet 1 – NER",
-        "Projet 2 – Vectorisation",
-        "Projet 3 – Topic Modeling",
-        "Projet 4 – Analyse de sentiment",
-        "Projet 5 – Classification",
-        "Projet 6 – Détection de plagiat",
-        "Projet 7 – Résumé automatique",
-        "Projet 8 – Chatbot",
-        "Projet 9 – Analyse de tendances",
-        "Projet 10 – Recommandation",
-    ]
+    "Choisissez un projet à tester",
+    list(projets.keys())
 )
 
-if choix == "Projet1n_ner":
-    projet1()
+# Affichage du statut dans la barre latérale
+st.sidebar.markdown("---")
+st.sidebar.success(f"📈 Module actif : {choix}")
 
-elif choix == "Projet2_vectorisation":
-    projet2()
-
-elif choix == "Projet3_topic_modeling":
-    projet3()
-
-elif choix == "Projet4_sentiment":
-    projet4()
-
-elif choix == "Projet5_classification":
-    projet5()
-
-elif choix == "Projet6_plagiat":
-    projet6()
-
-elif choix == "Projet7_resume":
-    projet7()
-
-elif choix == "Projet8_chatbot":
-    projet8()
-
-elif choix == "Projet9_tendances":
-    projet9()
-
-elif choix == "Projet10_recommandation":
-    projet10()
+# ==============================================================================
+# 4. EXÉCUTION DYNAMIQUE DU PROJET SÉLECTIONNÉ
+# ==============================================================================
+# Appelle directement la fonction main() associée au texte sélectionné
+projets[choix]()
