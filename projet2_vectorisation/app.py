@@ -3,7 +3,14 @@
 Interface Streamlit — Comparaison des techniques de vectorisation.
 Lancement : streamlit run app.py
 """
+import os
+import sys
 
+# Permet à Python de trouver les scripts locaux propres à ce projet
+dir_path = os.path.dirname(os.path.realpath(__file__))
+if dir_path not in sys.path:
+    sys.path.insert(0, dir_path)
+    
 import streamlit as st
 
 from corpus_sample import SAMPLE_CORPUS

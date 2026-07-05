@@ -3,7 +3,14 @@
 Interface Streamlit — Modélisation de sujets (LDA / NMF / BERTopic).
 Lancement : streamlit run app.py
 """
+import os
+import sys
 
+# Permet à Python de trouver les scripts locaux propres à ce projet
+dir_path = os.path.dirname(os.path.realpath(__file__))
+if dir_path not in sys.path:
+    sys.path.insert(0, dir_path)
+    
 import pandas as pd
 import streamlit as st
 
