@@ -1,5 +1,6 @@
 streamlit
-spacy
+spacy==3.8.2
+fr-core-news-sm==3.8.0
 pandas
 numpy
 scikit-learn
@@ -8,4 +9,3 @@ matplotlib
 seaborn
 beautifulsoup4
 requests
-https://github.com/explosion/spacy-models/releases/download/fr_core_news_sm-3.8.0/fr_core_news_sm-3.8.0.tar.gz
