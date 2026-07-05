@@ -6,26 +6,28 @@ import os
 import sys
 
 # ==============================================================================
-# 1. CORRECTIF DE CHEMINS (Placé STRICTEMENT au début)
+# CORRECTIF DE CHEMINS ROBUSTE (Prend en compte le dossier double projet1_ner)
 # ==============================================================================
-dir_path = os.path.dirname(os.path.realpath(__file__))
+dir_path = os.path.dirname(os.path.realpath(__file__)) # dossier projet1_ner/projet1_ner
+parent_path = os.path.abspath(os.path.join(dir_path, os.path.pardir)) # dossier projet1_ner parent
+
 if dir_path not in sys.path:
     sys.path.insert(0, dir_path)
+if parent_path not in sys.path:
+    sys.path.insert(0, parent_path) # Permet de trouver train_ner.py et data/
 
 import streamlit as st
 import spacy
 from spacy import displacy
 
-# Imports locaux sécurisés grâce au sys.path ci-dessus
+# Imports locaux désormais parfaitement sécurisés
 from train_ner import MODEL_DIR, regex_entity_component, build_pipeline, train  # noqa: F401
 from evaluate import evaluate
 
 # ==============================================================================
-# 2. FONCTION PRINCIPALE APPELÉE PAR L'APP GLOBAL
+# FONCTION PRINCIPALE APPELÉE PAR L'APP GLOBAL
 # ==============================================================================
 def main():
-    # Suppression de st.set_page_config (géré par l'app.py racine)
-    
     st.title("🔎 Reconnaissance d'entités nommées — Domaine IA")
     st.caption(
         "Pipeline hybride : EntityRuler (termes connus) + NER entraîné "
@@ -42,13 +44,14 @@ def main():
         "CODE_PROJET": "#c9c9ff",
     }
 
-    # Cache localisé et sécurisé avec le chemin absolu vers le modèle
     @st.cache_resource(show_spinner="Chargement / entraînement du modèle...")
     def load_model():
-        if not MODEL_DIR.exists():
+        # Utilisation du chemin absolu basé sur le parent pour trouver le modèle
+        full_model_dir = os.path.join(parent_path, "model", "ner_model")
+        if not os.path.exists(full_model_dir):
             nlp = train(n_iter=30)
         else:
-            nlp = spacy.load(MODEL_DIR)
+            nlp = spacy.load(full_model_dir)
         return nlp
 
     nlp = load_model()
@@ -109,7 +112,6 @@ def main():
                 rows.append({"Label": label, "Précision": round(p, 2), "Rappel": round(r, 2), "F1": round(f1, 2)})
             st.table(rows)
 
-# Permet de tester le projet de manière autonome si exécuté directement
 if __name__ == "__main__":
     st.set_page_config(page_title="NER Domaine IA", layout="wide")
     main()
