@@ -1,7 +1,34 @@
+import os
+import sys
 import streamlit as st
 
 # ==============================================================================
-# 1. IMPORTS CORRIGÉS (Noms des dossiers exacts en minuscules pour Linux/GitHub)
+# 1. CORRECTIF DE CHEMINS GLOBAL (Exécuté AVANT tout import de sous-projet)
+# ==============================================================================
+root_dir = os.path.dirname(os.path.realpath(__file__))
+
+# Liste exacte de tes 10 dossiers de projets sur GitHub
+dossiers_projets = [
+    "projet1_ner",
+    "projet2_vectorisation",
+    "projet3_topic_modeling",
+    "projet4_sentiment",
+    "projet5_classification",
+    "projet6_plagiat",
+    "projet7_resume",
+    "projet8_chatbot",
+    "projet9_tendances",
+    "projet10_recommandation"
+]
+
+# Injection dynamique de chaque dossier dans le système de recherche de Python
+for dossier in dossiers_projets:
+    chemin_absolu = os.path.join(root_dir, dossier)
+    if os.path.exists(chemin_absolu) and chemin_absolu not in sys.path:
+        sys.path.insert(0, chemin_absolu)
+
+# ==============================================================================
+# 2. IMPORTS DES PROJETS SÉCURISÉS
 # ==============================================================================
 from projet1_ner.app import main as projet1
 from projet2_vectorisation.app import main as projet2
@@ -14,7 +41,7 @@ from projet8_chatbot.app import main as projet8
 from projet9_tendances.app import main as projet9
 from projet10_recommandation.app import main as projet10
 
-# Configuration globale de la page principale
+# Configuration globale unique de la page (Doit être définie ici et uniquement ici)
 st.set_page_config(page_title="Projets NLP - M1 FDIA", layout="wide", page_icon="📚")
 
 st.title("📚 Plateforme des Projets NLP - M1 FDIA")
@@ -22,10 +49,8 @@ st.write("Sélectionnez un projet dans le menu de gauche pour tester son interfa
 st.markdown("---")
 
 # ==============================================================================
-# 2. DICTIONNAIRE DE CORRESPONDANCE
+# 3. DICTIONNAIRE DE CORRESPONDANCE
 # ==============================================================================
-# Cette structure associe directement le texte du menu à la fonction main du projet.
-# Cela règle le bug où tes conditions "if" ne correspondaient pas au texte affiché.
 projets = {
     "Projet 1 – NER Spécifique IA": projet1,
     "Projet 2 – Vectorisation": projet2,
@@ -40,7 +65,7 @@ projets = {
 }
 
 # ==============================================================================
-# 3. INTERFACE ET SÉLECTION DYNAMIQUE
+# 4. INTERFACE ET SÉLECTION DYNAMIQUE
 # ==============================================================================
 choix = st.sidebar.selectbox(
     "Choisissez un projet à exécuter :",
