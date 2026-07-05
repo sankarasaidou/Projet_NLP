@@ -1,0 +1,8 @@
+scikit-learn>=1.3
+numpy>=1.24
+streamlit>=1.30
+
+# Optionnel (résumé abstractif) :
+transformers>=4.38
+torch>=2.2
+sentencepiece>=0.2

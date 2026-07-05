@@ -1,0 +1,13 @@
+scikit-learn>=1.3
+numpy>=1.24
+streamlit>=1.30
+requests>=2.31
+beautifulsoup4>=4.12
+
+# Optionnel (vectorisations avancées) :
+gensim>=4.3
+sentence-transformers>=2.2
+
+# Optionnelle, pour une vraie lemmatisation française (sinon fallback simple) :
+spacy>=3.7
+# puis : python -m spacy download fr_core_news_sm

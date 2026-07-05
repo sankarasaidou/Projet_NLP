@@ -1,0 +1,11 @@
+scikit-learn>=1.3
+streamlit>=1.30
+
+# Optionnel, pour l'approche neuronale (fine-tuning CamemBERT/FlauBERT) :
+transformers>=4.38
+torch>=2.2
+datasets>=2.18
+
+# Optionnelle, pour une vraie lemmatisation française (sinon fallback simple) :
+spacy>=3.7
+# puis : python -m spacy download fr_core_news_sm

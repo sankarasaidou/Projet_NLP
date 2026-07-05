@@ -1,0 +1,11 @@
+scikit-learn>=1.3
+numpy>=1.24
+pandas>=2.0
+streamlit>=1.30
+
+# Optionnel (topic modeling par embeddings + clustering) :
+bertopic>=0.16
+
+# Optionnelle, pour une vraie lemmatisation française (sinon fallback simple) :
+spacy>=3.7
+# puis : python -m spacy download fr_core_news_sm
