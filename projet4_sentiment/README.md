@@ -190,12 +190,103 @@ Testé de bout en bout avec gestion d'erreurs :
   autres approches de fonctionner (`analyze_all` continue de retourner un
   résultat complet).
 
+## Augmentation du dataset (données synthétiques)
+
+Le dataset a été enrichi avec **4 692 phrases synthétiques** générées
+par `scripts/generate_synthetic_dataset.py`, réparties sur **20
+domaines** (produits tech, restaurants, hôtellerie, service client,
+livraison, banque/assurance, santé, éducation, transport, immobilier,
+télécom, sport, automobile, beauté, administration, culture, emploi,
+logiciels, alimentation, voyage), avec une vraie gestion des accords
+grammaticaux (genre) et des restrictions sémantiques par gabarit
+(évite les non-sens du type "ce transporteur a été livré").
+
+**data/dataset.csv contient maintenant 4 812 exemples** (120 originaux
++ 4 692 synthétiques, dédoublonnés) au lieu de 120.
+
+### ⚠️ Attention à l'interprétation des métriques après augmentation
+
+En relançant `python train.py` sur ce dataset fusionné, l'accuracy en
+validation croisée grimpe à **0.99** — un chiffre **trompeur** : les
+phrases synthétiques contiennent des formules de fin quasi exclusives
+à chaque classe ("Je recommande vivement." n'apparaît que dans les
+exemples positifs, "À éviter absolument." que dans les négatifs...).
+Le modèle peut "tricher" en détectant ces formules plutôt qu'en
+comprenant le sentiment réel.
+
+**Le vrai test, honnête et sans fuite** (`python
+scripts/benchmark_augmentation.py`) : entraîner UNIQUEMENT sur le
+synthétique et évaluer UNIQUEMENT sur les 120 phrases originales
+(écrites à la main, aucun gabarit, jamais vues à l'entraînement) :
+
+```
+Accuracy (train=synthétique seul, test=120 originaux, aucune fuite) : 0.80
+  négatif    précision=0.73 rappel=0.68 f1=0.70
+  neutre     précision=0.92 rappel=0.85 f1=0.88
+  positif    précision=0.76 rappel=0.88 f1=0.81
+```
+
+**0.80 contre 0.42-0.46 avant augmentation (dataset original seul) :
+c'est une vraie et substantielle amélioration de la généralisation**,
+confirmée sur un jeu de test totalement indépendant du dataset
+synthétique. C'est ce chiffre (0.80), pas le 0.99 de la validation
+croisée sur données mixtes, qu'il faut retenir et citer.
+
+### Recommandations pour aller plus loin
+
+- Rendre les formules de fin ("Je recommande vivement.", etc.) moins
+  exclusives à une classe (les mélanger davantage) pour éviter que le
+  modèle ne s'appuie dessus comme raccourci.
+- Ajouter davantage d'exemples **réels** (avis clients véritables,
+  via scraping — voir `scraper.py` du projet 2) en complément du
+  synthétique, qui reste un bon complément de volume mais pas un
+  substitut à de vraies données.
+- Réexécuter `scripts/benchmark_augmentation.py` à chaque évolution du
+  générateur pour vérifier que l'amélioration reste réelle et pas un
+  artefact.
+
+
+## Conformité au cahier des charges du Projet 4
+
+| Étape demandée | Fichier(s) | État |
+|---|---|---|
+| 1. Collecte de données (scraping avis clients) | `src/sentiment_analysis/scraper.py`, `scripts/collect_reviews.py` | ✅ Code complet (Allociné, notes en étoiles → labels). **Non testable en conditions réelles dans l'environnement de préparation** (pas d'accès réseau) — à valider chez toi, sélecteurs CSS ajustables si besoin. |
+| 2. Prétraitement unifié | `preprocessing.py` | ✅ Testé |
+| 3. Approche lexicale | `lexical.py` | ✅ Testé |
+| 4. Approche statistique (NB/SVM/LogReg) | `statistical.py` | ✅ Testé |
+| 5. Fine-tuning CamemBERT/FlauBERT | `scripts/train_neural.py` | ✅ Code complet (API `Trainer` standard). **Non exécuté** (pas de GPU/réseau ici) — à lancer chez toi, puis activer avec `SENTIMENT_ENABLE_NEURAL=true`. |
+| 6. Évaluation comparative (3 approches + analyse d'erreurs) | `app.py` (onglet Évaluation), `evaluation.py` | ✅ Testé (lexicale + statistique ; neuronale rejoint automatiquement la comparaison dès qu'un modèle fine-tuné est activé) |
+| Interface Streamlit (test sur textes utilisateurs) | `app.py` | ✅ Testé |
+
+### Utiliser le scraper (étape 1)
+
+```bash
+python scripts/collect_reviews.py --movie-path "/film/fichefilm-XXXXX/critiques/spectateurs/" --pages 5
+python train.py   # ré-entraîne avec les nouveaux avis réels ajoutés à data/dataset.csv
+```
+
+Remplace le chemin par celui d'un vrai film sur allocine.fr (visite le
+site, copie le chemin depuis l'URL). Si aucun avis n'est trouvé,
+inspecte la page (clic droit -> Inspecter sur un avis) et ajuste
+`_SELECTORS` dans `scraper.py`.
+
+### Fine-tuner le modèle neuronal (étape 5)
+
+```bash
+pip install transformers torch datasets
+python scripts/train_neural.py --checkpoint camembert-base --epochs 4
+export SENTIMENT_ENABLE_NEURAL=true   # active l'approche dans le pipeline
+export SENTIMENT_NEURAL_CHECKPOINT=./models/neural_sentiment
+streamlit run app.py
+```
+
 ## Limites et pistes d'amélioration
 
-- **Dataset (120 exemples)** : suffisant pour démontrer l'architecture,
-  mais insuffisant pour une vraie mise en production. Prochaine étape
-  réaliste : collecter 1000+ avis réels (voir `scraper.py` du projet 2,
-  réutilisable), et réévaluer avec `train.py`.
+- **Dataset (4 812 exemples, dont 4 692 synthétiques)** : le volume
+  n'est plus un facteur limitant, mais le déséquilibre synthétique/réel
+  (97%/3%) reste une limite pour un vrai déploiement. Prochaine étape
+  réaliste : remplacer progressivement du synthétique par de vrais avis
+  scrapés (voir `scraper.py` du projet 2), et re-belancer.
 - **Lexique fait main (154 mots)** : à remplacer par un lexique publié et
   validé linguistiquement (FEEL, Blogoscopie, Polarimots) pour un usage
   réel — le chargement externe (`data/lexicon_fr.csv`) est déjà prêt à

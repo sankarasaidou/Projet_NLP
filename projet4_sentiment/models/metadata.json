@@ -1,20 +1,20 @@
 {
   "NaiveBayes": {
-    "trained_at": "2026-07-07T21:35:48.902906+00:00",
+    "trained_at": "2026-07-08T18:14:42.845625+00:00",
     "path": "/home/claude/projet4_sentiment_prod/models/statistical_model_NaiveBayes.joblib"
   },
   "SVM": {
-    "trained_at": "2026-07-07T21:35:48.940812+00:00",
+    "trained_at": "2026-07-08T18:14:44.877130+00:00",
     "path": "/home/claude/projet4_sentiment_prod/models/statistical_model_SVM.joblib"
   },
   "LogisticRegression": {
-    "trained_at": "2026-07-07T21:35:49.005055+00:00",
+    "trained_at": "2026-07-08T18:14:53.867269+00:00",
     "path": "/home/claude/projet4_sentiment_prod/models/statistical_model_LogisticRegression.joblib"
   },
   "_best_model": "NaiveBayes",
   "_cv_scores": {
-    "NaiveBayes": 0.45,
-    "SVM": 0.4,
-    "LogisticRegression": 0.4166666666666667
+    "NaiveBayes": 0.9937666638601218,
+    "SVM": 0.9927273787086872,
+    "LogisticRegression": 0.9927273787086872
   }
 }
