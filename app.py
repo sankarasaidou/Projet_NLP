@@ -1,80 +1,122 @@
+# -*- coding: utf-8 -*-
+"""
+Launcher unique — Plateforme des Projets NLP M1 FDIA
+---------------------------------------------------------
+Ce fichier doit être placé à la RACINE du dépôt, au même niveau que les
+10 dossiers projet1_ner, projet2_vectorisation, ..., projet10_recommandation.
+
+Corrige 2 bugs bloquants de la version précédente :
+
+1. `st.set_page_config()` appelé par CHACUN des 10 sous-projets ET par ce
+   launcher -> Streamlit interdit un second appel et l'app plante dès
+   qu'on sélectionne un projet. On neutralise (monkey-patch) l'appel des
+   sous-projets, sans avoir à modifier leurs 10 fichiers.
+
+2. Collision de modules Python : plusieurs projets ont des fichiers de
+   même nom (preprocessing.py présent dans 7 projets, corpus.py dans 3,
+   data.py dans 3, evaluation.py dans 3...). En insérant tous les
+   dossiers de projets dans sys.path en même temps (comme dans la
+   version précédente), Python peut charger le preprocessing.py du
+   MAUVAIS projet et provoquer des bugs silencieux. On isole donc
+   strictement le sys.path et le cache d'imports (sys.modules) au seul
+   projet actuellement sélectionné.
+
+Bonus : plus besoin d'une fonction main() dans chaque app.py (qui
+n'existait pas dans tes 10 projets) -> on exécute chaque app.py
+directement avec `runpy`, exactement comme le ferait `streamlit run`.
+"""
+
 import os
 import sys
+import runpy
+
 import streamlit as st
 
-# ==============================================================================
-# 1. CORRECTIF DE CHEMINS GLOBAL (Exécuté AVANT tout import de sous-projet)
-# ==============================================================================
-root_dir = os.path.dirname(os.path.realpath(__file__))
-
-# Liste exacte de tes 10 dossiers de projets sur GitHub
-dossiers_projets = [
-    "projet1_ner",
-    "projet2_vectorisation",
-    "projet3_topic_modeling",
-    "projet4_sentiment",
-    "projet5_classification",
-    "projet6_plagiat",
-    "projet7_resume",
-    "projet8_chatbot",
-    "projet9_tendances",
-    "projet10_recommandation"
-]
-
-# Injection dynamique de chaque dossier dans le système de recherche de Python
-for dossier in dossiers_projets:
-    chemin_absolu = os.path.join(root_dir, dossier)
-    if os.path.exists(chemin_absolu) and chemin_absolu not in sys.path:
-        sys.path.insert(0, chemin_absolu)
-
-# ==============================================================================
-# 2. IMPORTS DES PROJETS SÉCURISÉS
-# ==============================================================================
-from projet1_ner.app import main as projet1
-from projet2_vectorisation.app import main as projet2
-from projet3_topic_modeling.app import main as projet3
-from projet4_sentiment.app import main as projet4
-from projet5_classification.app import main as projet5
-from projet6_plagiat.app import main as projet6
-from projet7_resume.app import main as projet7
-from projet8_chatbot.app import main as projet8
-from projet9_tendances.app import main as projet9
-from projet10_recommandation.app import main as projet10
-
-# Configuration globale unique de la page (Doit être définie ici et uniquement ici)
+# --- Config de page : une seule fois, ici, pour toute l'application ---
 st.set_page_config(page_title="Projets NLP - M1 FDIA", layout="wide", page_icon="📚")
 
-st.title("📚 Plateforme des Projets NLP - M1 FDIA")
-st.write("Sélectionnez un projet dans le menu de gauche pour tester son interface Streamlit dédiée.")
-st.markdown("---")
+ROOT_DIR = os.path.dirname(os.path.realpath(__file__))
 
-# ==============================================================================
-# 3. DICTIONNAIRE DE CORRESPONDANCE
-# ==============================================================================
-projets = {
-    "Projet 1 – NER Spécifique IA": projet1,
-    "Projet 2 – Vectorisation": projet2,
-    "Projet 3 – Topic Modeling": projet3,
-    "Projet 4 – Analyse de sentiment": projet4,
-    "Projet 5 – Classification": projet5,
-    "Projet 6 – Détection de plagiat": projet6,
-    "Projet 7 – Résumé automatique": projet7,
-    "Projet 8 – Chatbot": projet8,
-    "Projet 9 – Analyse de tendances": projet9,
-    "Projet 10 – Recommandation": projet10,
+# Nom affiché -> nom exact du dossier sur le disque (à adapter si tu
+# renommes un dossier).
+PROJECTS = {
+    "Projet 1 – NER spécifique IA": "projet1_ner",
+    "Projet 2 – Comparaison de vectorisation": "projet2_vectorisation",
+    "Projet 3 – Modélisation de sujets": "projet3_topic_modeling",
+    "Projet 4 – Analyse de sentiment": "projet4_sentiment",
+    "Projet 5 – Classification d'articles de presse": "projet5_classification",
+    "Projet 6 – Détecteur de plagiat": "projet6_plagiat",
+    "Projet 7 – Générateur de résumés": "projet7_resume",
+    "Projet 8 – Chatbot FAQ UV-BF": "projet8_chatbot",
+    "Projet 9 – Analyseur de tendances": "projet9_tendances",
+    "Projet 10 – Système de recommandation": "projet10_recommandation",
 }
 
-# ==============================================================================
-# 4. INTERFACE ET SÉLECTION DYNAMIQUE
-# ==============================================================================
-choix = st.sidebar.selectbox(
-    "Choisissez un projet à exécuter :",
-    list(projets.keys())
-)
+ALL_PROJECT_DIRS = [os.path.join(ROOT_DIR, folder) for folder in PROJECTS.values()]
 
-# Indicateur visuel dans la barre latérale
+
+def _isolate_project_imports(project_dir: str) -> None:
+    """Empêche les collisions de modules entre projets.
+
+    Plusieurs projets définissent des modules du même nom
+    (preprocessing.py, corpus.py, data.py, evaluation.py...). Si on
+    laissait tous les dossiers de projets dans sys.path en même temps,
+    Python pourrait réutiliser le mauvais module d'un projet à l'autre
+    (bug silencieux, vérifié et reproduit avant cette correction).
+
+    On ne garde donc dans sys.path QUE le dossier du projet actif, et on
+    vide sys.modules de tout module précédemment chargé depuis un AUTRE
+    dossier de projet, pour forcer un rechargement propre et isolé.
+    """
+    sys.path[:] = [p for p in sys.path if p not in ALL_PROJECT_DIRS]
+    sys.path.insert(0, project_dir)
+
+    for mod_name, mod in list(sys.modules.items()):
+        mod_file = getattr(mod, "__file__", None)
+        if not mod_file:
+            continue
+        for other_dir in ALL_PROJECT_DIRS:
+            if os.path.isdir(other_dir) and os.path.commonpath([mod_file, other_dir]) == other_dir:
+                del sys.modules[mod_name]
+                break
+
+
+# --- Neutralise les appels à st.set_page_config() faits par les sous-projets ---
+# (chacun des 10 app.py en contient un ; on ne peut pas l'appeler 2 fois).
+def _noop_set_page_config(*args, **kwargs):
+    pass
+
+
+st.set_page_config_original = st.set_page_config  # gardé au cas où, non utilisé
+st.set_page_config = _noop_set_page_config
+
+# --- Barre latérale : sélection du projet ---
+st.sidebar.title("📚 Projets NLP — M1 FDIA")
+choice = st.sidebar.selectbox("Choisissez un projet à exécuter :", list(PROJECTS.keys()))
 st.sidebar.markdown("---")
-st.sidebar.success(f"📈 Module actif : {choix}")
+st.sidebar.success(f"📈 Module actif : {choice}")
 
-# Lancement automatique de la fonction main() du projet choisi
-projets[choix]()
+project_folder = PROJECTS[choice]
+project_dir = os.path.join(ROOT_DIR, project_folder)
+app_file = os.path.join(project_dir, "app.py")
+
+# On ne ré-isole (et ne vide le cache) QUE si l'utilisateur change de
+# projet -- pas à chaque interaction dans le même projet, pour ne pas
+# perdre inutilement le bénéfice de st.cache_resource / st.cache_data.
+if st.session_state.get("_active_project") != project_folder:
+    _isolate_project_imports(project_dir)
+    st.session_state["_active_project"] = project_folder
+
+# --- Exécution du sous-projet sélectionné ---
+if not os.path.isfile(app_file):
+    st.error(
+        f"⚠️ Fichier introuvable : `{app_file}`.\n\n"
+        f"Vérifie que le dossier `{project_folder}` est bien présent à la "
+        f"racine du dépôt, au même niveau que ce launcher."
+    )
+else:
+    try:
+        runpy.run_path(app_file, run_name="__main__")
+    except Exception as e:
+        st.error(f"❌ Erreur en exécutant {choice} :\n\n{e}")
+        st.exception(e)

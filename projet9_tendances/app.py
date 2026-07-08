@@ -6,14 +6,6 @@ Lancement : streamlit run app.py
 ÉTAPE 6 (Alertes automatiques) est intégrée ici : voir onglet "Alertes".
 """
 
-import os
-import sys
-
-# Permet à Python de trouver les scripts locaux propres à ce projet
-dir_path = os.path.dirname(os.path.realpath(__file__))
-if dir_path not in sys.path:
-    sys.path.insert(0, dir_path)
-    
 import json
 
 import streamlit as st

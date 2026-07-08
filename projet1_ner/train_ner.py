@@ -2,22 +2,23 @@
 """
 ÉTAPE 5 : Ajouter la couche EntityRuler de spaCy personnalisé
 ------------------------------------------------------------------
-On construit un pipeline spaCy hybride à trois couches.
+On construit un pipeline spaCy hybride à trois couches, dans cet ordre :
+
+    1. EntityRuler   -> reconnaît les termes lexicaux connus par cœur
+                         (TECHNIQUE, FRAMEWORK, DATASET, METRIC)
+    2. NER entraîné   -> statistique, entraîné sur nos annotations
+                         manuelles pour généraliser à des formulations
+                         non listées explicitement
+    3. regex_entity_component (composant custom, ajouté APRÈS le ner)
+                      -> détecte DATE / VERSION / CODE_PROJET par regex
+                         et les ajoute sans écraser les entités déjà
+                         trouvées par les deux couches précédentes
+
+C'est une architecture courante en NER de domaine : on combine des règles
+(fiables sur du connu) et un modèle statistique (qui généralise), plutôt
+que de tout miser sur un seul composant.
 """
 
-# ==============================================================================
-# 1. CORRECTIF DE CHEMINS LOCAL (Placé STRICTEMENT en première position)
-# ==============================================================================
-import os
-import sys
-
-dir_path = os.path.dirname(os.path.realpath(__file__))
-if dir_path not in sys.path:
-    sys.path.insert(0, dir_path)
-
-# ==============================================================================
-# 2. AUTRES IMPORTS STANDARD ET DE SPACY
-# ==============================================================================
 import random
 from pathlib import Path
 
@@ -26,7 +27,6 @@ from spacy.language import Language
 from spacy.training import Example
 from spacy.util import filter_spans
 
-# Imports locaux désormais sécurisés (grâce au bloc sys.path ci-dessus)
 from patterns import PHRASE_PATTERNS, REGEX_PATTERNS
 from data.annotations import TRAIN_DATA, ENTITY_LABELS
 
