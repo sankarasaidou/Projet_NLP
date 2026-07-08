@@ -8,7 +8,7 @@ erreurs de façon centralisée. C'est le seul point d'entrée public
 recommandé du package.
 """
 
-from sentiment_analysis.config import DEFAULT_STATISTICAL_MODEL
+from sentiment_analysis.config import DEFAULT_STATISTICAL_MODEL, ENABLE_NEURAL
 from sentiment_analysis.lexical import LexicalSentimentAnalyzer
 from sentiment_analysis.statistical import StatisticalSentimentClassifier, ModelNotTrainedError, get_best_model_name
 from sentiment_analysis.neural import NeuralSentimentClassifier, NeuralNotAvailableError, is_available as neural_is_available
@@ -66,6 +66,14 @@ class SentimentPipeline:
 
     def analyze_neural(self, text: str) -> dict:
         text = validate_text(text)
+        if not ENABLE_NEURAL:
+            raise NeuralNotAvailableError(
+                "L'approche neuronale est désactivée par défaut (SENTIMENT_ENABLE_NEURAL=false) : "
+                "le checkpoint 'camembert-base' n'est PAS fine-tuné pour cette tâche par défaut, "
+                "l'activer sans fine-tuning donnerait des prédictions dénuées de sens. "
+                "Définis la variable d'environnement SENTIMENT_ENABLE_NEURAL=true UNIQUEMENT "
+                "après avoir fine-tuné un modèle (voir neural.py)."
+            )
         if not neural_is_available():
             raise NeuralNotAvailableError(
                 "L'approche neuronale nécessite `transformers` et `torch` (non installés)."

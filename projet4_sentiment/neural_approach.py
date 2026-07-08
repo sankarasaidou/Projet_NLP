@@ -98,6 +98,14 @@ def predict_neural(texts: list[str], model_dir="./model/neural_sentiment") -> li
     except ImportError as e:
         raise ImportError("`pip install transformers torch`") from e
 
+    import os
+    if not os.path.isdir(model_dir):
+        raise FileNotFoundError(
+            f"Aucun modèle fine-tuné trouvé dans '{model_dir}'. "
+            "Ce dossier n'existe que si `fine_tune_sentiment_model()` a été "
+            "exécuté au préalable (entraînement non inclus dans cette démo)."
+        )
+
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
     model = AutoModelForSequenceClassification.from_pretrained(model_dir)
     model.eval()
