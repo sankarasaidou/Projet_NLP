@@ -1,18 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Interface Streamlit de production — Analyse de sentiment comparative.
+"""Interface Streamlit de production — "Tonalité", analyse de sentiment
+comparative.
 
-Différences clés avec la version précédente (non-production) :
-- Charge des modèles DÉJÀ ENTRAÎNÉS (via train.py), ne réentraîne jamais
-  à chaque lancement.
-- Gestion d'erreurs explicite à chaque étape (modèle absent, dépendance
-  optionnelle manquante, texte invalide) avec messages actionnables.
-- Analyse par lot (upload CSV) en plus de l'analyse au cas par cas.
-- Onglet d'évaluation basé sur les vraies métriques calculées par train.py
-  (accuracy CV, rapport par classe), pas juste un chiffre isolé.
+Identité visuelle : voir src/sentiment_analysis/ui_components.py pour le
+design system (couleurs, typographie, composant jauge tri-zone signature).
 
 Lancement : streamlit run app.py
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -27,20 +23,16 @@ from sentiment_analysis.preprocessing import InvalidTextError, is_spacy_availabl
 from sentiment_analysis.statistical import ModelNotTrainedError, MODEL_FACTORIES
 from sentiment_analysis.neural import is_available as neural_is_available, NeuralNotAvailableError
 from sentiment_analysis.data_loader import load_dataset
-from sentiment_analysis.evaluation import classification_report, confusion_matrix
-import json
+from sentiment_analysis.evaluation import classification_report, confusion_matrix, compare_approaches, error_analysis
+from sentiment_analysis.lexical import LexicalSentimentAnalyzer
+from sentiment_analysis.ui_components import (
+    inject_design_system, render_header, result_card, contribution_chip_html, COLORS,
+)
 
-st.set_page_config(page_title="Analyse de sentiment — Production", layout="wide", page_icon="💬")
-st.title("💬 Analyse de sentiment — Version production")
-st.caption("Lexicale · Statistique (modèles persistés) · Neuronale (optionnelle) — Projet 4 M1 FDIA")
+st.set_page_config(page_title="Tonalité — Analyse de sentiment", layout="wide", page_icon="◐")
+inject_design_system()
 
-if not is_spacy_available():
-    st.info(
-        "ℹ️ spaCy n'est pas installé : la lemmatisation utilise un mode "
-        "simplifié (fallback automatique). Pour de meilleurs résultats, "
-        "installe spaCy + `fr_core_news_sm` (voir README).",
-        icon="ℹ️",
-    )
+# --- Chargement du pipeline (modèles déjà entraînés, jamais réentraînés ici) ---
 
 
 @st.cache_resource(show_spinner="Chargement des modèles entraînés...")
@@ -50,110 +42,166 @@ def load_pipeline() -> SentimentPipeline:
 
 try:
     pipeline = load_pipeline()
-    model_status_ok = True
 except ModelNotTrainedError as e:
-    model_status_ok = False
-    st.error(
-        f"❌ Aucun modèle statistique entraîné n'a été trouvé.\n\n"
-        f"**Il faut d'abord entraîner les modèles** en exécutant, dans un terminal :\n\n"
-        f"```bash\npython train.py\n```\n\nDétail technique : {e}"
+    render_header("—", is_spacy_available(), neural_is_available())
+    st.markdown(
+        f"""
+        <div class="tn-card" style="border-color:{COLORS['négatif']}40;">
+            <div class="tn-card-title" style="color:{COLORS['négatif']};">Aucun modèle entraîné</div>
+            <p>Cette page a besoin d'un modèle statistique entraîné pour fonctionner.
+            Entraîne-le d'abord, puis recharge la page :</p>
+            <pre>python train.py</pre>
+            <p style="color:{COLORS['ink_muted']}; font-size:0.85rem;">Détail technique : {e}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
     st.stop()
 
+render_header(pipeline.statistical_model_name, is_spacy_available(), neural_is_available())
+
+if not is_spacy_available():
+    st.markdown(
+        f"""
+        <div class="tn-card" style="border-color:{COLORS['neutre']}40; background:{COLORS['neutre_soft']}30;">
+            <span style="color:{COLORS['neutre']}; font-weight:600;">Mode simplifié —</span>
+            spaCy n'est pas installé : la lemmatisation utilise un repli automatique.
+            Installe spaCy et <code>fr_core_news_sm</code> pour de meilleurs résultats (voir README).
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+# --- Panneau de configuration (sidebar) ---
 with st.sidebar:
-    st.header("⚙️ Paramètres")
+    st.markdown("#### Configuration")
     statistical_model_choice = st.selectbox(
-        "Modèle statistique", list(MODEL_FACTORIES.keys()),
+        "Modèle statistique",
+        list(MODEL_FACTORIES.keys()),
         index=list(MODEL_FACTORIES.keys()).index(pipeline.statistical_model_name),
-        help="Le modèle pré-sélectionné est celui ayant obtenu la meilleure "
-             "accuracy en validation croisée lors du dernier entraînement.",
+        help="Présélectionné : le modèle ayant obtenu la meilleure accuracy "
+             "en validation croisée lors du dernier entraînement.",
     )
     if statistical_model_choice != pipeline.statistical_model_name:
         pipeline = SentimentPipeline(statistical_model_name=statistical_model_choice)
 
-    st.markdown("---")
     if METADATA_PATH.exists():
         metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
-        best = metadata.get("_best_model")
-        if best:
-            st.success(f"🏆 Meilleur modèle (validation croisée) : **{best}**")
         cv_scores = metadata.get("_cv_scores", {})
         if cv_scores:
-            st.caption("Scores de validation croisée (5-fold) :")
+            st.markdown("###### Validation croisée (5-fold)")
             for name, score in cv_scores.items():
-                st.caption(f"  • {name} : {score:.2f}")
+                is_best = name == metadata.get("_best_model")
+                marker = " — meilleur" if is_best else ""
+                st.markdown(
+                    f'<div class="tn-mono" style="font-size:0.82rem; color:{COLORS["ink_muted"]};">'
+                    f'{name}{marker} : {score:.2f}</div>',
+                    unsafe_allow_html=True,
+                )
 
     st.markdown("---")
+    st.markdown("###### État de l'approche neuronale")
     if neural_is_available():
-        st.success("🧠 Approche neuronale disponible (transformers/torch installés).")
-    else:
-        st.warning(
-            "🧠 Approche neuronale non disponible dans cet environnement "
-            "(`pip install transformers torch` pour l'activer)."
+        st.markdown(
+            f'<span class="tn-pill on">transformers/torch détectés</span>', unsafe_allow_html=True,
         )
+    else:
+        st.markdown(
+            f'<span class="tn-pill off">non installés</span>', unsafe_allow_html=True,
+        )
+        st.caption("`pip install transformers torch` pour l'activer, puis fine-tuner (voir README).")
 
-tab_single, tab_batch, tab_eval = st.tabs(
-    ["📝 Analyser un texte", "📂 Analyse par lot (CSV)", "📊 Évaluation des modèles"]
-)
+tab_single, tab_batch, tab_eval = st.tabs(["Analyser un texte", "Analyse par lot", "Évaluation"])
 
+# ==============================================================================
+# ONGLET 1 — Analyse d'un texte unique
+# ==============================================================================
 with tab_single:
     text = st.text_area(
-        "Texte à analyser :",
+        "Texte à analyser",
         value="Je suis très satisfait, le service était excellent et rapide.",
         height=100,
+        label_visibility="collapsed",
+        placeholder="Colle ou écris un avis, un commentaire, un extrait d'article...",
     )
 
-    if st.button("Analyser", type="primary"):
+    analyze_clicked = st.button("Analyser", type="primary")
+
+    if analyze_clicked:
         try:
             result = pipeline.analyze_all(text)
         except InvalidTextError as e:
-            st.error(f"⚠️ Entrée invalide : {e}")
+            st.markdown(
+                f'<div class="tn-card" style="border-color:{COLORS["négatif"]}40;">'
+                f'<span style="color:{COLORS["négatif"]}; font-weight:600;">Texte invalide —</span> {e}</div>',
+                unsafe_allow_html=True,
+            )
             result = None
 
         if result:
             col1, col2, col3 = st.columns(3)
 
             with col1:
-                st.subheader("📖 Lexicale")
                 r = result["lexicale"]
                 if "error" in r:
-                    st.info(r["error"])
+                    result_card("Lexicale", None, 0, detail_html=r["error"])
                 else:
-                    st.metric("Sentiment", r["label"], f"score = {r['score']:.2f}")
-                    for d in r["details"]:
-                        sign = "🔴" if d["negated"] else ("🟢" if d["polarity"] > 0 else "🔵")
-                        st.caption(f"{sign} `{d['word']}` : {d['polarity']:+.2f}")
+                    intensity = min(abs(r["score"]) / 4, 1.0)
+                    chips = "".join(
+                        contribution_chip_html(d["word"], d["polarity"], d["negated"])
+                        for d in r["details"]
+                    )
+                    detail = (
+                        f'<div class="tn-mono" style="font-size:0.8rem; color:{COLORS["ink_muted"]}; margin-top:0.5rem;">'
+                        f'score {r["score"]:+.2f}</div>'
+                        f'<div style="margin-top:0.4rem;">{chips or "<span class=\'tn-empty\'>Aucun mot du lexique détecté.</span>"}</div>'
+                    )
+                    result_card("Lexicale", r["label"], intensity, detail_html=detail)
 
             with col2:
-                st.subheader(f"📊 Statistique ({pipeline.statistical_model_name})")
                 r = result["statistique"]
                 if "error" in r:
-                    st.info(r["error"])
+                    result_card(f"Statistique ({pipeline.statistical_model_name})", None, 0, detail_html=r["error"])
                 else:
-                    st.metric("Sentiment", r["label"], f"confiance = {r['confidence']*100:.0f}%")
-                    st.progress(min(r["confidence"], 1.0))
+                    detail = (
+                        f'<div class="tn-mono" style="font-size:0.8rem; color:{COLORS["ink_muted"]}; margin-top:0.5rem;">'
+                        f'confiance {r["confidence"]*100:.0f}%</div>'
+                    )
+                    result_card(f"Statistique ({pipeline.statistical_model_name})", r["label"], r["confidence"], detail_html=detail)
 
             with col3:
-                st.subheader("🧠 Neuronale")
                 r = result["neuronale"]
                 if "error" in r:
-                    st.info(r["error"])
+                    result_card("Neuronale", None, 0, detail_html="Non activée dans cet environnement.")
                 else:
-                    st.metric("Sentiment", r["label"], f"confiance = {r['confidence']*100:.0f}%")
+                    detail = (
+                        f'<div class="tn-mono" style="font-size:0.8rem; color:{COLORS["ink_muted"]}; margin-top:0.5rem;">'
+                        f'confiance {r["confidence"]*100:.0f}%</div>'
+                    )
+                    result_card("Neuronale", r["label"], r["confidence"], detail_html=detail)
 
+# ==============================================================================
+# ONGLET 2 — Analyse par lot
+# ==============================================================================
 with tab_batch:
-    st.write(
-        "Uploader un fichier CSV avec une colonne `text` pour analyser "
-        "plusieurs textes en une fois (approche statistique, la plus rapide "
-        "pour du traitement par lot)."
+    st.markdown(
+        f'<p style="color:{COLORS["ink_muted"]};">Dépose un CSV avec une colonne '
+        f'<code>text</code> pour analyser plusieurs textes d\'un coup '
+        f'(approche statistique, la plus rapide en volume).</p>',
+        unsafe_allow_html=True,
     )
-    uploaded = st.file_uploader("Fichier CSV", type=["csv"])
+    uploaded = st.file_uploader("Fichier CSV", type=["csv"], label_visibility="collapsed")
 
     if uploaded is not None:
         try:
             df = pd.read_csv(uploaded)
             if "text" not in df.columns:
-                st.error("⚠️ Le fichier CSV doit contenir une colonne nommée `text`.")
+                st.markdown(
+                    f'<div class="tn-card" style="border-color:{COLORS["négatif"]}40;">'
+                    f'<span style="color:{COLORS["négatif"]}; font-weight:600;">Colonne manquante —</span> '
+                    f'le fichier doit contenir une colonne nommée <code>text</code>.</div>',
+                    unsafe_allow_html=True,
+                )
             else:
                 texts = df["text"].astype(str).tolist()
                 predictions, confidences = [], []
@@ -163,41 +211,54 @@ with tab_batch:
                         predictions.append(r["label"])
                         confidences.append(round(r["confidence"], 2))
                     except InvalidTextError:
-                        predictions.append("(texte invalide)")
+                        predictions.append("texte invalide")
                         confidences.append(None)
 
                 df["sentiment_prédit"] = predictions
                 df["confiance"] = confidences
                 st.dataframe(df, use_container_width=True)
 
-                st.download_button(
-                    "📥 Télécharger les résultats (CSV)",
-                    data=df.to_csv(index=False).encode("utf-8"),
-                    file_name="resultats_sentiment.csv",
-                    mime="text/csv",
+                col_dl, col_stats = st.columns([1, 2])
+                with col_dl:
+                    st.download_button(
+                        "Télécharger les résultats",
+                        data=df.to_csv(index=False).encode("utf-8"),
+                        file_name="resultats_sentiment.csv",
+                        mime="text/csv",
+                    )
+
+                st.markdown("###### Répartition des sentiments prédits")
+                st.bar_chart(
+                    df["sentiment_prédit"].value_counts(),
+                    color=COLORS["brand"],
                 )
-
-                st.subheader("Répartition des sentiments prédits")
-                st.bar_chart(df["sentiment_prédit"].value_counts())
         except pd.errors.ParserError as e:
-            st.error(f"⚠️ Impossible de lire ce fichier CSV : {e}")
+            st.markdown(
+                f'<div class="tn-card" style="border-color:{COLORS["négatif"]}40;">'
+                f'<span style="color:{COLORS["négatif"]}; font-weight:600;">CSV illisible —</span> {e}</div>',
+                unsafe_allow_html=True,
+            )
+    else:
+        st.markdown('<div class="tn-empty">Aucun fichier déposé pour le moment.</div>', unsafe_allow_html=True)
 
+# ==============================================================================
+# ONGLET 3 — Évaluation comparative
+# ==============================================================================
 with tab_eval:
-    st.write(
-        "Évaluation sur le jeu de test tenu à l'écart de l'entraînement "
-        "(voir `data/dataset.csv`, split stratifié dans `data_loader.py`)."
+    st.markdown(
+        f'<p style="color:{COLORS["ink_muted"]};">Évaluation sur le jeu de test tenu à '
+        f'l\'écart de l\'entraînement (split stratifié, voir <code>data_loader.py</code>).</p>',
+        unsafe_allow_html=True,
     )
 
-    st.subheader("🆚 Comparaison des 3 approches (lexicale vs statistique vs neuronale)")
-    st.caption(
-        "C'est la comparaison demandée par le cahier des charges : les 3 "
-        "TYPES d'approches évalués sur le même jeu de test, avec analyse "
-        "des erreurs de chacune."
+    st.markdown("#### Comparaison des 3 approches")
+    st.markdown(
+        f'<p style="color:{COLORS["ink_muted"]}; font-size:0.88rem;">Lexicale, statistique et '
+        f'neuronale évaluées sur le même jeu de test, avec analyse des erreurs de chacune.</p>',
+        unsafe_allow_html=True,
     )
+
     if st.button("Comparer les 3 approches", type="primary"):
-        from sentiment_analysis.evaluation import compare_approaches, error_analysis
-        from sentiment_analysis.lexical import LexicalSentimentAnalyzer
-
         dataset = load_dataset()
         results_by_approach = {}
 
@@ -208,22 +269,32 @@ with tab_eval:
         statistical_preds = pipeline.statistical.predict(dataset.test_texts)
         results_by_approach[f"Statistique ({pipeline.statistical_model_name})"] = (statistical_preds, dataset.test_labels)
 
-        neural_preds = None
         if neural_is_available():
             try:
                 neural_preds = [pipeline.analyze_neural(t)["label"] for t in dataset.test_texts]
                 results_by_approach["Neuronale"] = (neural_preds, dataset.test_labels)
             except NeuralNotAvailableError as e:
-                st.info(f"Approche neuronale exclue de la comparaison : {e}")
+                st.markdown(f'<div class="tn-empty">Neuronale exclue : {e}</div>', unsafe_allow_html=True)
         else:
-            st.info("Approche neuronale exclue de la comparaison : transformers/torch non installés.")
+            st.markdown('<div class="tn-empty">Neuronale exclue : transformers/torch non installés.</div>', unsafe_allow_html=True)
 
         comparison = compare_approaches(results_by_approach)
 
         cols = st.columns(len(comparison))
         for col, (approach, report) in zip(cols, comparison.items()):
             with col:
-                st.metric(approach, f"{report['accuracy']:.2f}", "accuracy")
+                st.markdown(
+                    f"""
+                    <div class="tn-card" style="text-align:center;">
+                        <div style="color:{COLORS['ink_muted']}; font-size:0.8rem;">{approach}</div>
+                        <div class="tn-mono" style="font-size:1.8rem; font-weight:600; color:{COLORS['brand']};">
+                            {report['accuracy']:.2f}
+                        </div>
+                        <div style="color:{COLORS['ink_muted']}; font-size:0.75rem;">accuracy</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
         for approach, (preds, gold) in results_by_approach.items():
             with st.expander(f"Détail — {approach}"):
@@ -248,7 +319,7 @@ with tab_eval:
                     )
 
     st.markdown("---")
-    st.subheader("📊 Comparaison entre les 3 modèles statistiques")
+    st.markdown("#### Comparaison entre les 3 modèles statistiques")
     if st.button("Comparer les modèles statistiques"):
         dataset = load_dataset()
         for model_name in MODEL_FACTORIES:
@@ -257,7 +328,7 @@ with tab_eval:
                 predictions = [temp_pipeline.analyze_statistical(t)["label"] for t in dataset.test_texts]
                 report = classification_report(predictions, dataset.test_labels)
 
-                st.markdown(f"#### {model_name} — accuracy = `{report['accuracy']:.2f}`")
+                st.markdown(f"###### {model_name} — accuracy `{report['accuracy']:.2f}`")
                 st.table({
                     label: {
                         "précision": round(m["precision"], 2),
@@ -269,7 +340,7 @@ with tab_eval:
                 })
 
                 matrix = confusion_matrix(predictions, dataset.test_labels)
-                st.caption("Matrice de confusion (lignes = réel, colonnes = prédit) :")
+                st.caption("Matrice de confusion (lignes = réel, colonnes = prédit)")
                 st.table(pd.DataFrame(matrix).T[LABELS])
             except ModelNotTrainedError:
-                st.warning(f"{model_name} : non entraîné (lance `python train.py`).")
+                st.markdown(f'<div class="tn-empty">{model_name} : non entraîné (lance `python train.py`).</div>', unsafe_allow_html=True)
