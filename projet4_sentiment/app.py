@@ -35,28 +35,23 @@ inject_design_system()
 # --- Chargement du pipeline (modèles déjà entraînés, jamais réentraînés ici) ---
 
 
-@st.cache_resource(show_spinner="Chargement des modèles entraînés...")
+@st.cache_resource(show_spinner="Chargement des modèles...")
 def load_pipeline() -> SentimentPipeline:
-    return SentimentPipeline()
+    pipeline = SentimentPipeline()
+    try:
+        pipeline.statistical  # force le chargement (paresseux par défaut) pour valider maintenant
+    except ModelNotTrainedError:
+        # Aucun modèle exploitable (absent, ou sauvegardé avec une version
+        # de scikit-learn incompatible avec celle installée ici) : on
+        # entraîne à la volée plutôt que de bloquer l'utilisateur.
+        from train import train_all
+        train_all()
+        pipeline = SentimentPipeline()
+        pipeline.statistical  # revalide après entraînement
+    return pipeline
 
 
-try:
-    pipeline = load_pipeline()
-except ModelNotTrainedError as e:
-    render_header("—", is_spacy_available(), neural_is_available())
-    st.markdown(
-        f"""
-        <div class="tn-card" style="border-color:{COLORS['négatif']}40;">
-            <div class="tn-card-title" style="color:{COLORS['négatif']};">Aucun modèle entraîné</div>
-            <p>Cette page a besoin d'un modèle statistique entraîné pour fonctionner.
-            Entraîne-le d'abord, puis recharge la page :</p>
-            <pre>python train.py</pre>
-            <p style="color:{COLORS['ink_muted']}; font-size:0.85rem;">Détail technique : {e}</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.stop()
+pipeline = load_pipeline()
 
 render_header(pipeline.statistical_model_name, is_spacy_available(), neural_is_available())
 

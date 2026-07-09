@@ -71,24 +71,19 @@ def train_model(model_name: str, dataset, show_report: bool) -> None:
                 logger.info("    %r -> prédit=%s attendu=%s", e["text"][:60], e["predicted"], e["expected"])
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Entraîne et sauvegarde les modèles statistiques.")
-    parser.add_argument(
-        "--model", choices=list(MODEL_FACTORIES) + ["all"], default="all",
-        help="Modèle à entraîner (par défaut : all = les 3 modèles).",
-    )
-    parser.add_argument("--report", action="store_true", help="Afficher le rapport détaillé par classe.")
-    parser.add_argument("--cv-folds", type=int, default=5, help="Nombre de folds pour la validation croisée.")
-    args = parser.parse_args()
-
+def train_all(models=None, cv_folds: int = 5, show_report: bool = False) -> dict:
+    """Entraîne un ou plusieurs modèles statistiques, les sauvegarde, et
+    détermine le meilleur par validation croisée. Utilisée à la fois par
+    la CLI (`python train.py`) et par l'application (ré-entraînement
+    automatique si aucun modèle compatible n'est disponible)."""
     dataset = load_dataset()
+    models_to_train = models or list(MODEL_FACTORIES)
 
-    models_to_train = list(MODEL_FACTORIES) if args.model == "all" else [args.model]
     cv_scores = {}
     for model_name in models_to_train:
-        train_model(model_name, dataset, args.report)
-        cv_scores[model_name] = cross_validate_model(model_name, dataset, args.cv_folds)
-        logger.info("%-20s validation croisée (%d-fold) : accuracy = %.2f", model_name, args.cv_folds, cv_scores[model_name])
+        train_model(model_name, dataset, show_report)
+        cv_scores[model_name] = cross_validate_model(model_name, dataset, cv_folds)
+        logger.info("%-20s validation croisée (%d-fold) : accuracy = %.2f", model_name, cv_folds, cv_scores[model_name])
 
     if len(models_to_train) > 1:
         best_model = max(cv_scores, key=cv_scores.get)
@@ -100,6 +95,21 @@ def main():
         METADATA_PATH.write_text(json.dumps(metadata, indent=2, ensure_ascii=False), encoding="utf-8")
 
     logger.info("Entraînement terminé. Modèles sauvegardés dans models/.")
+    return cv_scores
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Entraîne et sauvegarde les modèles statistiques.")
+    parser.add_argument(
+        "--model", choices=list(MODEL_FACTORIES) + ["all"], default="all",
+        help="Modèle à entraîner (par défaut : all = les 3 modèles).",
+    )
+    parser.add_argument("--report", action="store_true", help="Afficher le rapport détaillé par classe.")
+    parser.add_argument("--cv-folds", type=int, default=5, help="Nombre de folds pour la validation croisée.")
+    args = parser.parse_args()
+
+    models_to_train = list(MODEL_FACTORIES) if args.model == "all" else [args.model]
+    train_all(models=models_to_train, cv_folds=args.cv_folds, show_report=args.report)
 
 
 if __name__ == "__main__":

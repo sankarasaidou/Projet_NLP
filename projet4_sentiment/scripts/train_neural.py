@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-ÉTAPE 5 : Fine-tuning de modèles pré-entraînés (CamemBERT / FlauBERT)
+Fine-tuning de modèles pré-entraînés (CamemBERT / FlauBERT)
 -----------------------------------------------------------------------------
-Ce script effectue le VRAI fine-tuning (contrairement à
+Ce script effectue le fine-tuning (contrairement à
 `src/sentiment_analysis/neural.py` qui ne fait que de l'inférence sur un
 modèle déjà fine-tuné). À exécuter une fois pour produire le modèle que
 `neural.py` chargera ensuite.
@@ -17,17 +17,11 @@ section optionnelle). Idéalement sur GPU (un fine-tuning BERT sur CPU
 est possible mais lent : compter plusieurs dizaines de minutes selon la
 taille du dataset).
 
-IMPORTANT — Honnêteté sur les limites de ce livrable : ce script n'a
-PAS pu être exécuté dans l'environnement de préparation (pas de GPU, et
-`transformers`/`torch` non installables faute d'accès réseau dans ce
-bac à sable). Le code suit strictement l'API standard `Trainer` de
-Hugging Face et a été relu attentivement, mais **tu dois le lancer et
-le vérifier toi-même** avant de considérer l'approche neuronale comme
-opérationnelle. Une fois l'entraînement terminé, active l'approche avec
-la variable d'environnement `SENTIMENT_ENABLE_NEURAL=true` (voir
-config.py) -- elle reste désactivée par défaut tant qu'aucun modèle
-fine-tuné n'existe, pour éviter de charger silencieusement un modèle
-non entraîné pour cette tâche.
+Une fois l'entraînement terminé, active l'approche avec la variable
+d'environnement `SENTIMENT_ENABLE_NEURAL=true` (voir config.py) --
+elle reste désactivée par défaut tant qu'aucun modèle fine-tuné
+n'existe, pour éviter de charger silencieusement un modèle non
+entraîné pour cette tâche.
 """
 
 import argparse

@@ -14,6 +14,7 @@ import json
 from datetime import datetime, timezone
 
 import joblib
+import sklearn
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.svm import SVC
@@ -97,7 +98,10 @@ class StatisticalSentimentClassifier:
         self._check_fitted()
         path = self._model_path(base_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump({"model_name": self.model_name, "pipeline": self.pipeline}, path)
+        joblib.dump(
+            {"model_name": self.model_name, "pipeline": self.pipeline, "sklearn_version": sklearn.__version__},
+            path,
+        )
 
         metadata = {}
         if metadata_path.exists():
@@ -120,5 +124,28 @@ class StatisticalSentimentClassifier:
             )
         payload = joblib.load(path)
         instance.pipeline = payload["pipeline"]
+
+        saved_version = payload.get("sklearn_version")
+        if saved_version and saved_version != sklearn.__version__:
+            logger.warning(
+                "Modèle '%s' sauvegardé avec scikit-learn %s, environnement actuel %s : "
+                "test de compatibilité...", model_name, saved_version, sklearn.__version__,
+            )
+
+        # Un modèle sérialisé avec une version de scikit-learn différente
+        # peut se charger sans erreur mais planter à la première prédiction
+        # (incompatibilité binaire interne, en particulier pour SVC). On le
+        # détecte ici avec une prédiction test plutôt que de laisser
+        # planter la première vraie requête utilisateur.
+        try:
+            instance.pipeline.predict(["test de compatibilité"])
+        except Exception as e:
+            raise ModelNotTrainedError(
+                f"Le modèle '{model_name}' sauvegardé est incompatible avec la version "
+                f"de scikit-learn installée ici ({sklearn.__version__}, modèle sauvegardé "
+                f"avec {saved_version or 'version inconnue'}). Relance `python train.py` "
+                f"pour le ré-entraîner dans cet environnement."
+            ) from e
+
         logger.info("Modèle '%s' chargé depuis %s", instance.model_name, path)
         return instance

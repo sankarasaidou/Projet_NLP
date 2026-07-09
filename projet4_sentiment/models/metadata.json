@@ -1,14 +1,14 @@
 {
   "NaiveBayes": {
-    "trained_at": "2026-07-08T18:14:42.845625+00:00",
+    "trained_at": "2026-07-09T06:24:03.959099+00:00",
     "path": "/home/claude/projet4_sentiment_prod/models/statistical_model_NaiveBayes.joblib"
   },
   "SVM": {
-    "trained_at": "2026-07-08T18:14:44.877130+00:00",
+    "trained_at": "2026-07-09T06:24:05.996240+00:00",
     "path": "/home/claude/projet4_sentiment_prod/models/statistical_model_SVM.joblib"
   },
   "LogisticRegression": {
-    "trained_at": "2026-07-08T18:14:53.867269+00:00",
+    "trained_at": "2026-07-09T06:24:14.760972+00:00",
     "path": "/home/claude/projet4_sentiment_prod/models/statistical_model_LogisticRegression.joblib"
   },
   "_best_model": "NaiveBayes",

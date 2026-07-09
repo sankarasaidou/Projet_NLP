@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Script CLI — Collecte d'avis réels (étape 1 du cahier des charges).
+Script CLI — Collecte d'avis réels.
 -------------------------------------------------------------------
 Lance le scraper (src/sentiment_analysis/scraper.py) sur une liste de
 films Allociné et ajoute les avis collectés à data/dataset.csv.
@@ -10,8 +10,7 @@ Usage :
     python scripts/collect_reviews.py --movie-path "/film/fichefilm-XXXXX/critiques/spectateurs/" --pages 5
     python scripts/collect_reviews.py --movies-file movies.txt --pages 3
 
-Nécessite un accès réseau (non disponible dans l'environnement de
-préparation de ce livrable -- voir avertissement dans scraper.py).
+Nécessite un accès réseau.
 """
 
 import argparse

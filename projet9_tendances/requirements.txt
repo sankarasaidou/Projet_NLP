@@ -1,6 +1,0 @@
-pandas>=2.0
-matplotlib>=3.7
-streamlit>=1.30
-
-# Optionnel, pour un vrai nuage de mots visuel (sinon fallback en barres) :
-wordcloud>=1.9

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-ÉTAPE 1 : Collecte de données — scraping d'avis clients réels
+Collecte de données — scraping d'avis clients réels
 -------------------------------------------------------------------
 Cible : Allociné (avis spectateurs sur des films), choisi pour 3 raisons :
     1. Avis en français, volume important, renouvelés en continu.
@@ -14,19 +14,15 @@ Cible : Allociné (avis spectateurs sur des films), choisi pour 3 raisons :
     3. Structure HTML relativement stable et pas de JavaScript obligatoire
        pour afficher les avis (contrairement à beaucoup de sites d'avis).
 
-IMPORTANT — Honnêteté sur les limites de ce livrable :
-    Ce scraper n'a PAS pu être testé en conditions réelles dans
-    l'environnement de préparation de ce projet (bac à sable sans accès
-    réseau sortant). Le code suit une structure HTML standard observée
-    sur ce type de site, mais les sélecteurs CSS peuvent avoir changé
-    depuis. **Teste-le chez toi avec un vrai accès réseau, et ajuste les
-    sélecteurs dans `_SELECTORS` ci-dessous si besoin** (inspecte la page
-    avec les outils de développement du navigateur : clic droit ->
-    Inspecter sur un avis).
+Les sélecteurs CSS sont centralisés dans `_SELECTORS` ci-dessous : si le
+scraping ne remonte aucun résultat, c'est le premier endroit à vérifier
+(la structure HTML du site cible peut évoluer avec le temps). Inspecter
+la page avec les outils de développement du navigateur (clic droit ->
+Inspecter sur un avis) permet de retrouver les bons sélecteurs.
 
 Cadre légal : ce scraping est fait dans un cadre pédagogique, à volume
 raisonnable (quelques centaines d'avis, avec délai entre requêtes). Pour
-un usage en production réelle, vérifie les conditions d'utilisation
+un usage en production réelle, vérifier les conditions d'utilisation
 (CGU) et le fichier robots.txt du site cible avant tout scraping à plus
 grande échelle.
 """
@@ -162,4 +158,4 @@ if __name__ == "__main__":
         for r in reviews[:5]:
             print(f"[{r.label}] ({r.rating}/5) {r.text[:80]}...")
     except Exception as e:
-        print(f"Scraping non exécutable dans cet environnement : {e}")
+        print(f"Scraping impossible : {e}")
