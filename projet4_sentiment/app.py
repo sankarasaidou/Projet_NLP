@@ -104,7 +104,7 @@ with st.sidebar:
         st.markdown(
             f'<span class="tn-pill off">non installés</span>', unsafe_allow_html=True,
         )
-        st.caption("`pip install transformers torch` pour l'activer, puis fine-tuner (voir README).")
+        st.caption("`pip install transformers torch` suffit pour l'activer (modèle déjà entraîné pour le sentiment).")
 
 tab_single, tab_batch, tab_eval = st.tabs(["Analyser un texte", "Analyse par lot", "Évaluation"])
 

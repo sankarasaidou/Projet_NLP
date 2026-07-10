@@ -1,3 +1,7 @@
+# ==============================================================================
+# Dépendances de PRODUCTION — suffisent pour que l'app démarre et que les
+# trois approches (lexicale, statistique, neuronale) fonctionnent pleinement.
+# ==============================================================================
 streamlit>=1.30
 scikit-learn>=1.3
 pandas>=2.0
@@ -6,11 +10,22 @@ joblib>=1.3
 requests>=2.31
 beautifulsoup4>=4.12
 
+# spaCy + modèle français : optionnel (fallback automatique de tokenisation
+# si absent, voir preprocessing.py), mais RECOMMANDÉ pour de meilleurs
+# résultats (vraie lemmatisation au lieu du fallback simplifié).
+# Le nom de package PyPI "fr-core-news-sm" n'existe pas : les modèles spaCy
+# s'installent via l'URL directe du wheel (méthode officielle spaCy).
 spacy>=3.8,<3.9
 https://github.com/explosion/spacy-models/releases/download/fr_core_news_sm-3.8.0/fr_core_news_sm-3.8.0-py3-none-any.whl
 
+# Approche neuronale : modèle déjà fine-tuné pour le sentiment en
+# français (voir neural.py), fonctionnel dès l'installation, sans
+# entraînement supplémentaire. Poids d'installation notable (~1 Go,
+# essentiellement torch) : à retirer de cette liste si l'approche
+# neuronale n'est pas nécessaire pour l'usage visé.
 transformers>=4.38
 torch>=2.2
-datasets>=2.18
-sentencepiece
-accelerate
+
+# Utilisé uniquement par scripts/train_neural.py (fine-tuning optionnel
+# sur les données propres au projet) :
+# datasets>=2.18

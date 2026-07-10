@@ -166,23 +166,30 @@ développement du navigateur pour retrouver les bons sélecteurs).
 
 ## Approche neuronale
 
-`neural.py` effectue l'inférence à partir d'un modèle CamemBERT ou
-FlauBERT déjà fine-tuné. `scripts/train_neural.py` effectue ce
-fine-tuning (API `Trainer` standard de Hugging Face) :
+`neural.py` utilise un modèle CamemBERT déjà fine-tuné pour l'analyse
+de sentiment en français
+(`cmarkea/distilcamembert-base-sentiment`, sur une échelle de 1 à 5
+étoiles), convertie vers le schéma à 3 classes du projet. Aucune étape
+de fine-tuning n'est nécessaire pour l'utiliser : installer les
+dépendances suffit à l'activer.
+
+```bash
+pip install transformers torch
+streamlit run app.py
+```
+
+Pour un modèle adapté au vocabulaire propre du projet plutôt qu'au
+modèle générique par défaut, `scripts/train_neural.py` permet de
+fine-tuner sur `data/dataset.csv` (API `Trainer` standard de Hugging
+Face) et de substituer le checkpoint obtenu via la variable
+d'environnement `SENTIMENT_NEURAL_CHECKPOINT` :
 
 ```bash
 pip install transformers torch datasets
 python scripts/train_neural.py --checkpoint camembert-base --epochs 4
-export SENTIMENT_ENABLE_NEURAL=true
 export SENTIMENT_NEURAL_CHECKPOINT=./models/neural_sentiment
 streamlit run app.py
 ```
-
-L'approche neuronale reste désactivée par défaut (`ENABLE_NEURAL=false`
-dans `config.py`) tant qu'aucun modèle fine-tuné n'est disponible :
-charger un checkpoint pré-entraîné générique (ex. `camembert-base` non
-fine-tuné) donnerait des prédictions dénuées de sens pour cette tâche
-à 3 classes.
 
 ## Augmentation du dataset
 
@@ -258,8 +265,10 @@ les approches lexicale et statistique.
   et validé linguistiquement (FEEL, Blogoscopie, Polarimots) pour un
   usage réel — le chargement externe (`data/lexicon_fr.csv`) accueille
   un tel fichier sans changement de code.
-- **Approche neuronale** : nécessite un fine-tuning explicite avant
-  usage (voir [Approche neuronale](#approche-neuronale)) ; le
-  checkpoint pré-entraîné générique ne convient pas tel quel.
+- **Approche neuronale** : fonctionne dès l'installation de
+  `transformers`/`torch` grâce à un modèle déjà entraîné pour le
+  sentiment ; le fine-tuning (`scripts/train_neural.py`) reste une
+  option pour affiner sur le vocabulaire propre du projet, pas un
+  prérequis (voir [Approche neuronale](#approche-neuronale)).
 - **Pas de CI/CD configuré** (ex. GitHub Actions lançant `pytest` à
   chaque push) : recommandé pour une mise en production continue.

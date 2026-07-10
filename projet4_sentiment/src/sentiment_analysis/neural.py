@@ -1,30 +1,46 @@
 # -*- coding: utf-8 -*-
-"""Approche neuronale : fine-tuning / inférence CamemBERT pour la
-classification de sentiment à 3 classes.
+"""Approche neuronale : classification de sentiment par un modèle
+CamemBERT déjà fine-tuné pour cette tâche.
 
-Dépendance lourde et OPTIONNELLE (transformers + torch) : le reste de
-l'application (lexicale + statistique + interface) doit fonctionner
-parfaitement même si ces paquets ne sont pas installés. On centralise
-donc ici la détection de disponibilité (`is_available()`), pour que le
-reste du code (pipeline.py, app.py) n'ait qu'à vérifier un booléen au
-lieu de dupliquer des try/except partout.
+Contrairement à un modèle de base (`camembert-base`) qui n'a jamais vu
+de tâche de classification de sentiment et donnerait des prédictions
+sans valeur, ce module charge un modèle déjà spécialisé pour l'analyse
+de sentiment en français, publié sur le Hub Hugging Face. Aucune étape
+de fine-tuning n'est nécessaire pour que l'approche fonctionne :
+installer `transformers` et `torch` suffit à l'activer.
+
+Le modèle par défaut (`cmarkea/distilcamembert-base-sentiment`) classe
+le texte sur une échelle de 1 à 5 étoiles ; on convertit cette échelle
+vers le schéma à 3 classes du projet (négatif / neutre / positif) avec
+le même seuillage que celui utilisé pour la collecte d'avis notés
+(voir scraper.py) :
+    1-2 étoiles -> négatif
+    3 étoiles   -> neutre
+    4-5 étoiles -> positif
+
+Pour un besoin plus spécifique (vocabulaire de domaine particulier),
+`scripts/train_neural.py` permet de fine-tuner un modèle sur les
+données propres au projet (`data/dataset.csv`) et de le substituer au
+modèle par défaut via la variable d'environnement
+`SENTIMENT_NEURAL_CHECKPOINT`.
 """
 
+import re
 from functools import lru_cache
 
-from sentiment_analysis.config import NEURAL_MODEL_CHECKPOINT, LABELS
+from sentiment_analysis.config import NEURAL_MODEL_CHECKPOINT
 from sentiment_analysis.preprocessing import clean_text
 from sentiment_analysis.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-LABEL2ID = {label: i for i, label in enumerate(LABELS)}
-ID2LABEL = {i: label for label, i in LABEL2ID.items()}
+_STAR_PATTERN = re.compile(r"(\d)")
 
 
 class NeuralNotAvailableError(RuntimeError):
     """Levée quand on tente d'utiliser l'approche neuronale sans les
-    dépendances requises (transformers, torch)."""
+    dépendances requises (transformers, torch), ou quand le modèle ne
+    peut pas être chargé (réseau indisponible, checkpoint introuvable)."""
 
 
 @lru_cache(maxsize=1)
@@ -37,49 +53,76 @@ def is_available() -> bool:
         return False
 
 
+def _label_to_sentiment(raw_label: str) -> str:
+    """Convertit le label natif du modèle vers le schéma à 3 classes du
+    projet. Gère à la fois un format 'étoiles' ('1 star', '5 stars',
+    'LABEL_4'...) et un format binaire positif/négatif, pour rester
+    compatible avec plusieurs modèles de sentiment publiés en français."""
+    label_lower = raw_label.lower()
+
+    if "pos" in label_lower:
+        return "positif"
+    if "neg" in label_lower:
+        return "négatif"
+    if "neutr" in label_lower:
+        return "neutre"
+
+    if "star" in label_lower or "étoile" in label_lower:
+        match = _STAR_PATTERN.search(label_lower)
+        if match:
+            stars = int(match.group(1))
+            if stars <= 2:
+                return "négatif"
+            if stars >= 4:
+                return "positif"
+            return "neutre"
+
+    logger.warning("Label neuronal non reconnu (%r), retour 'neutre' par défaut.", raw_label)
+    return "neutre"
+
+
 class NeuralSentimentClassifier:
-    """Classifieur neuronal basé sur un modèle CamemBERT pré-entraîné
-    (fine-tuné au préalable, voir train.py --with-neural). Chargement
-    paresseux : le modèle n'est chargé en mémoire qu'au premier appel."""
+    """Classifieur neuronal. Chargement paresseux : le modèle n'est
+    chargé en mémoire qu'au premier appel à predict()."""
 
     def __init__(self, model_path: str = NEURAL_MODEL_CHECKPOINT):
         if not is_available():
             raise NeuralNotAvailableError(
                 "L'approche neuronale nécessite `transformers` et `torch` "
-                "(non installés dans cet environnement) : "
-                "`pip install transformers torch`"
+                "(non installés) : `pip install transformers torch`"
             )
         self.model_path = model_path
-        self._tokenizer = None
-        self._model = None
+        self._classifier = None
 
     def _ensure_loaded(self):
-        if self._model is not None:
+        if self._classifier is not None:
             return
-        import torch
-        from transformers import AutoTokenizer, AutoModelForSequenceClassification
+        from transformers import pipeline as hf_pipeline
 
-        logger.info("Chargement du modèle neuronal depuis %s...", self.model_path)
-        self._tokenizer = AutoTokenizer.from_pretrained(self.model_path)
-        self._model = AutoModelForSequenceClassification.from_pretrained(
-            self.model_path, num_labels=len(LABELS), id2label=ID2LABEL, label2id=LABEL2ID,
-        )
-        self._model.eval()
-        self._torch = torch
+        logger.info("Chargement du modèle neuronal '%s'...", self.model_path)
+        try:
+            self._classifier = hf_pipeline(
+                "text-classification", model=self.model_path, top_k=1,
+            )
+        except Exception as e:
+            raise NeuralNotAvailableError(
+                f"Impossible de charger le modèle neuronal '{self.model_path}' : {e}"
+            ) from e
         logger.info("Modèle neuronal chargé.")
 
     def predict(self, texts: list[str]) -> list[dict]:
         self._ensure_loaded()
         clean_texts = [clean_text(t) for t in texts]
-        inputs = self._tokenizer(
-            clean_texts, return_tensors="pt", truncation=True, padding=True, max_length=128
-        )
-        with self._torch.no_grad():
-            logits = self._model(**inputs).logits
-            probabilities = self._torch.softmax(logits, dim=-1)
+
+        raw_results = self._classifier(clean_texts, truncation=True, max_length=128)
 
         results = []
-        for probs in probabilities:
-            pred_id = int(probs.argmax())
-            results.append({"label": ID2LABEL[pred_id], "confidence": float(probs[pred_id])})
+        for r in raw_results:
+            # top_k=1 retourne soit un dict, soit une liste d'un seul dict
+            # selon la version de transformers installée.
+            best = r[0] if isinstance(r, list) else r
+            results.append({
+                "label": _label_to_sentiment(best["label"]),
+                "confidence": float(best["score"]),
+            })
         return results

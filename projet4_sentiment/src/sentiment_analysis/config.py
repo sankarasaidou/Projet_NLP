@@ -34,9 +34,16 @@ NEGATIVE_EMOJI_SCORE = -1.5
 # --- Modèle statistique par défaut ---
 DEFAULT_STATISTICAL_MODEL = os.environ.get("SENTIMENT_DEFAULT_MODEL", "SVM")  # SVM | NaiveBayes | LogisticRegression
 
-# --- Approche neuronale (optionnelle) ---
-NEURAL_MODEL_CHECKPOINT = os.environ.get("SENTIMENT_NEURAL_CHECKPOINT", "camembert-base")
-ENABLE_NEURAL = os.environ.get("SENTIMENT_ENABLE_NEURAL", "false").lower() == "true"
+# --- Approche neuronale ---
+# Modèle déjà fine-tuné pour l'analyse de sentiment en français (échelle
+# 1-5 étoiles, convertie vers le schéma à 3 classes du projet dans
+# neural.py). Aucun fine-tuning n'est requis pour activer l'approche :
+# installer transformers + torch suffit. `scripts/train_neural.py`
+# permet de substituer un modèle fine-tuné sur les données propres au
+# projet via cette même variable d'environnement si besoin.
+NEURAL_MODEL_CHECKPOINT = os.environ.get(
+    "SENTIMENT_NEURAL_CHECKPOINT", "cmarkea/distilcamembert-base-sentiment"
+)
 
 LABELS = ["négatif", "neutre", "positif"]
 
