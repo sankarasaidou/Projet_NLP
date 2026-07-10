@@ -39,7 +39,7 @@ inject_design_system()
 def load_pipeline() -> SentimentPipeline:
     pipeline = SentimentPipeline()
     try:
-        pipeline.statistical  # force le chargement (paresseux par défaut) pour valider maintenant
+        _ = pipeline.statistical  # force le chargement (paresseux par défaut) pour valider maintenant
     except ModelNotTrainedError:
         # Aucun modèle exploitable (absent, ou sauvegardé avec une version
         # de scikit-learn incompatible avec celle installée ici) : on
@@ -47,7 +47,7 @@ def load_pipeline() -> SentimentPipeline:
         from train import train_all
         train_all()
         pipeline = SentimentPipeline()
-        pipeline.statistical  # revalide après entraînement
+        _ = pipeline.statistical  # revalide après entraînement
     return pipeline
 
 

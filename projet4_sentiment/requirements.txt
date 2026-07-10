@@ -20,9 +20,14 @@ https://github.com/explosion/spacy-models/releases/download/fr_core_news_sm-3.8.
 
 # Approche neuronale : modèle déjà fine-tuné pour le sentiment en
 # français (voir neural.py), fonctionnel dès l'installation, sans
-# entraînement supplémentaire. Poids d'installation notable (~1 Go,
-# essentiellement torch) : à retirer de cette liste si l'approche
-# neuronale n'est pas nécessaire pour l'usage visé.
+# entraînement supplémentaire.
+# IMPORTANT : on force ici la roue CPU-only de torch (~200 Mo) au lieu
+# de la version par défaut avec support CUDA (~2 Go). Cette dernière
+# dépasse souvent les limites de build/mémoire des hébergeurs gratuits
+# (ex. Streamlit Community Cloud), ce qui fait échouer silencieusement
+# l'installation de torch -> l'approche neuronale reste alors indiquée
+# comme "non activée" alors qu'elle est bien dans requirements.txt.
+--extra-index-url https://download.pytorch.org/whl/cpu
 transformers>=4.38
 torch>=2.2
 
